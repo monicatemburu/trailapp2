@@ -28,8 +28,13 @@
                         password
                     })
                 }).then((res)=>res.json())
-
-                console.log(result)
+                if(result.status == 'ok'){
+                    alert('Registered Successfully')
+                }
+                else{
+                    alert(result.error)
+                }
+                // console.log(result)
             }
         </script>
     </body>

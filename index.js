@@ -6,11 +6,14 @@ var User = require('./model/user')
 
 var bcrypt = require('bcryptjs')
 
+var jwt = require('jsonwebtoken')
+
 var app = express();
 
 var path = require('path');
 
-mongoose.connect('mongodb://localhost:8000/myFirstDatabase',{
+const JWT_SECRET = 'kdoelwoieoewdlasdandakdgdiahdkdsjhdw'
+mongoose.connect('mongodb://localhost/myFirstDatabase',{
     useNewUrlParser: true,
     useUnifiedTopology:true,
     useCreateIndex : true
@@ -25,6 +28,16 @@ app.post('/register', async (req,res) => {
     const {username, password:plainTextPassword} = req.body
     const password = await bcrypt.hash(plainTextPassword,10)
     // console.log(await bcrypt.hash(password,10))
+
+    if(!username || typeof username != 'string'){
+        return res.json({status: 'ok', error: 'Invalid username'})
+    }
+    if(!plainTextPassword || typeof plainTextPassword != 'string'){
+        return res.json({status: 'ok', error: 'Invalid password'})
+    }
+    if(plainTextPassword.length < 5){
+        return res.json({status: 'error', error: 'Password is too short, it should be atleast 6 characters'})
+    }
     try{
         const response = await User.create({
             username,
@@ -33,12 +46,55 @@ app.post('/register', async (req,res) => {
         console.log(response)
     }
     catch(err){
-        console.log(err)
-        return res.json({status:"error"})
+        if(err.code === 11000){
+            return res.json({status:'error', error:'Username already in use'})
+        }
+        throw error
     }
-    res.json({status: 'ok'})
+    res.json({status:'ok'})
 })
 
+app.post('/login', async(req,res)=>{
+    
+    console.log(decoded)
+    const {username, password} = req.body
+    console.log(username)
+    const user = await User.findOne({ username }).lean()
+    console.log(user)
+    if(!user){
+        return res.json({status:'error', error:'Invalid username/password'})
+    }
+
+    if(await bcrypt.compare(password, user.password)){
+        const token = jwt.sign({id: user._id, username: user.username}, JWT_SECRET)
+        return res.json({status: 'ok', data: token})
+    }
+    res.json({status:'error', error: 'Invalid username/password'})
+})
+
+app.post('/changepassword', async(req,res)=>{
+    const {token, newpassword: plainTextPassword} = req.body
+    if(!plainTextPassword || typeof plainTextPassword != 'string'){
+        return res.json({status: 'ok', error: 'Invalid password'})
+    }
+    if(plainTextPassword.length < 5){
+        return res.json({status: 'error', error: 'Password is too short, it should be atleast 6 characters'})
+    }
+    try{
+        const user = await jwt.verify(token, JWT_SECRET)
+        const _id = user.id
+        const password = await bcrypt.hash(plainTextPassword,10)
+        await User.updateOne({ _id },{
+            $set: {password}
+        })
+        res.json({status:'ok',})
+    }
+    catch(err){
+        if(err){
+            res.json({status:'error', error:err.message})
+        }
+    }
+})
 app.listen('3000',()=>{
     console.log('Server is up and running on port 3000')
 })
