@@ -5,3 +5,5 @@ Techs involved :
 NODE JS
 MONGO DB
 JWT
+
+For hashing used bcryptjs library
